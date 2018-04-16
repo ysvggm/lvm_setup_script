@@ -12,7 +12,7 @@ define setup_vg(
 class setup_lvm{
 
   exec { "gethddlist":
-    command => "/root/workspace/nadder_mp_setup/gethddlist.py",
+    command => "/root/lvm_setup_script/gethddlist.py",
     logoutput => true,
   }  
 
