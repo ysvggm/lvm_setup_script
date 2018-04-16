@@ -20,6 +20,17 @@ define setup_lv(
   }
 }
 
+define mkfs_lv(
+  $vg_name,
+  $lv_name,
+){
+  exec { "mkfs.xfs /dev/mapper/${vg_name}-${lv_name}":
+    path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
+    logoutput => true,
+  }
+}
+
+
 define add_hdd_to_vg(
   $vg_name,
   $dev_path,
@@ -58,6 +69,27 @@ define new_folder(
   }
 }
 
+define mount_lv(
+  $vg_name,
+  $lv_name,
+  $mount_point,
+  $user,
+  $group,
+  $type
+){
+  exec { "mount /dev/mapper/${vg_name}-${lv_name} -o context=\"system_u:object_r:${type}:s0\" ${mount_point}":
+    path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
+    onlyif => "test -d ${mount_point}",
+  }
+  exec { "chown -R ${user}:${group} ${mount_point}":
+    path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
+    onlyif => "test -d ${mount_point}",
+  }
+
+}
+
+
+
 class setup_lvm{
 
   $module_stdlib = 'puppetlabs-stdlib'
@@ -87,18 +119,38 @@ class setup_lvm{
         $instance_lv_name = "instance_lv"
         $instance_mount_point = "/var/lib/nova/instances"
         setup_vg{"instance": vg_name => "${instance_vg_name}", dev_path => "${hdd1}1"}
-        setup_lv{"instance-lv": vg_name => "${instance_vg_name}", lv_name => $instance_lv_name}
-	append_if_no_such_line{"instance-lv": file => "/etc/fstab", line => "/dev/mapper/${instance_vg_name}-${instance_lv_name}	${instance_mount_point}  xfs     defaults        0       0"}
+        setup_lv{"instance-lv": vg_name => "${instance_vg_name}", lv_name => "${instance_lv_name}"}
+        mkfs_lv{"instance-lv": vg_name => "${instance_vg_name}", lv_name => "${instance_lv_name}"}
+	append_if_no_such_line{"instance-lv": 
+          file => "/etc/fstab", 
+          line => "/dev/mapper/${instance_vg_name}-${instance_lv_name}	${instance_mount_point}  xfs     defaults        0       0"}
         move_folder{"instance-lv": old_pos => "${instance_mount_point}", new_pos => "${instance_mount_point}_1"}
         new_folder{"instance-lv": path => "${instance_mount_point}", user => "nova", group => "nova", type => "nova_var_lib_t"}
+        mount_lv{"instance-lv": 
+          vg_name => "${instance_vg_name}", 
+          lv_name => "${instance_lv_name}", 
+          mount_point => "${instance_mount_point}", 
+          user => "nova", 
+          group => "nova", 
+          type => "nova_var_lib_t"}
         $image_vg_name = "image_vg"
         $image_lv_name = "image_lv"
         $image_mount_point = "/var/lib/glance/images"
         setup_vg{"image": vg_name => "${image_vg_name}", dev_path => "${hdd1}2"}
-        setup_lv{"image-lv": vg_name => "${image_vg_name}", lv_name => "image-lv"}
-	append_if_no_such_line{"image-lv": file => "/etc/fstab", line => "/dev/mapper/${image_vg_name}-${image_lv_name}	${image_mount_point}  xfs     defaults        0       0"}
+        setup_lv{"image-lv": vg_name => "${image_vg_name}", lv_name => "${image_lv_name}"}
+        mkfs_lv{"image-lv": vg_name => "${image_vg_name}", lv_name => "${image_lv_name}"}
+	append_if_no_such_line{"image-lv": 
+          file => "/etc/fstab", 
+          line => "/dev/mapper/${image_vg_name}-${image_lv_name}	${image_mount_point}  xfs     defaults        0       0"}
         move_folder{"image-lv": old_pos => "${image_mount_point}", new_pos => "${image_mount_point}_1"}
         new_folder{"image-lv": path => "${image_mount_point}", user => "glance", group => "glance", type => "glance_var_lib_t"}
+        mount_lv{"image-lv": 
+          vg_name => "${image_vg_name}", 
+          lv_name => "${image_lv_name}", 
+          mount_point => "${image_mount_point}", 
+          user => "glance", 
+          group => "glance", 
+          type => "glance_var_lib_t"}
         add_hdd_to_vg{"volume": vg_name => "cinder-volumes", dev_path => "${hddlist[1]}" }
       }
     8: {}
