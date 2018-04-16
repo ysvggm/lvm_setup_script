@@ -9,6 +9,17 @@ define setup_vg(
   }
 }
 
+define setup_lv(
+  $vg_name,
+  $lv_name,
+){
+  exec { "lvcreate -l 100%FREE -n ${lv_name} ${vg_name}":
+    path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
+    onlyif      => "vgdisplay | grep ${vg_name}",
+    logoutput => true,
+  }
+}
+
 define add_hdd_to_vg(
   $vg_name,
   $dev_path,
@@ -48,7 +59,9 @@ class setup_lvm{
         }
         $hdd1 = $hddlist[0]
         setup_vg{"instance": vg_name => "instance-vg", dev_path => "${hdd1}1"}
+        setup_lv{"instance-lv": vg_name => "instance-vg", lv_name => "instance-lv"}
         setup_vg{"image": vg_name => "image-vg", dev_path => "${hdd1}2"}
+        setup_lv{"image-lv": vg_name => "image-vg", lv_name => "image-lv"}
         add_hdd_to_vg{"volume": vg_name => "cinder-volumes", dev_path => "${hddlist[1]}" }
       }
     8: {}
