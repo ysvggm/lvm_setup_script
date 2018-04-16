@@ -22,17 +22,16 @@ def get_sata_hdd_list():
                 out_lines = out_string.splitlines(False)
                 i = 0
                 hdd_count = 0
-                str_hddlist = "hddlist,["
+                str_hddlist = "hddlist:\n"
 		hdd_list = []
                 while i < len(out_lines):
                         device_strs = out_lines[i].split('  ')
                         dir_strs = out_lines[i+1].split('  ')
                         if dir_strs[2].find("0000:00:17") > 0:
                                 hdd_count += 1
-                                str_hddlist += "\"" + device_strs[len(device_strs)-1] + "\","
+                                str_hddlist += "  - \"" + device_strs[len(device_strs)-1].strip() + "\"\n"
 				hdd_list.append(device_strs[len(device_strs)-1])
                         i += 2
-                str_hddlist += "]"
                 print str_hddlist
 		return hdd_list
         if len(err_string) > 0:
@@ -40,7 +39,6 @@ def get_sata_hdd_list():
 		return ""
 
 def get_hdd_sector_number(hdd):
-	os.environ["HDD1"] = hdd
 	p = subprocess.Popen("fdisk -l  " + hdd + " | grep -m 1 Disk | cut -d',' -f3 | cut -d' ' -f2", stdout=subprocess.PIPE, stderr=subprocess.PIPE ,shell=True)
         out, err = p.communicate()
         out_stringio = StringIO(out)
@@ -49,8 +47,7 @@ def get_hdd_sector_number(hdd):
         err_string = err_stringio.read()
         if len(out_string) > 0:
                 sector_num = Decimal(out_string)
-                print "partition1_sector_num," + str(sector_num/2)
-		os.environ["PART1_SECTOR_NUM"] = str(sector_num/2)
+                print "hdd1_sector_num: " + str(sector_num)
         if len(err_string) > 0:
                 print err_string
 
