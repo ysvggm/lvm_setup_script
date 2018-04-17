@@ -89,7 +89,7 @@ define mount_lv(
 }
 
 define sync_file($old_pos, $new_pos){
-  exec { "rsync -rvh $new_pos/ $old_pos":
+  exec { "rsync -rvhXog $new_pos/ $old_pos":
     path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
     onlyif => "test -d $new_pos",
   }
