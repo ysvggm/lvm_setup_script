@@ -98,18 +98,6 @@ define sync_file($old_pos, $new_pos){
 
 class setup_lvm{
 
-  $module_stdlib = 'puppetlabs-stdlib'
-  exec { 'puppet_module_stdlib':
-    command => "puppet module install ${module_stdlib}",
-    unless  => "puppet module list | grep ${module_stdlib}",
-    path    => ['/bin', '/opt/puppetlabs/bin']
-  }
-
-#  exec { "gethddlist":
-#    command => "/root/lvm_setup_script/gethddlist.py",
-#    logoutput => true,
-#  }  
-
   $hddlist = hiera('hddlist')
   $total_num = $hddlist.length
   $partition1_sector_num = hiera('hdd1_sector_num')/2
