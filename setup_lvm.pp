@@ -77,7 +77,7 @@ define mount_lv(
   $group,
   $type
 ){
-  exec { "mount /dev/mapper/${vg_name}-${lv_name} -o context=\"system_u:object_r:${type}:s0\" ${mount_point}":
+  exec { "mount /dev/mapper/${vg_name}-${lv_name} ${mount_point}":
     path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
     onlyif => "test -d ${mount_point}",
   }
@@ -85,14 +85,28 @@ define mount_lv(
     path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
     onlyif => "test -d ${mount_point}",
   }
+  exec { "chcon -h system_u:object_r:${type}:s0 ${mount_point}":
+    path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
+    onlyif => "test -d ${mount_point}",
+  }
 
 }
 
-define sync_file($old_pos, $new_pos){
+define sync_file(
+  $old_pos, 
+  $new_pos,
+  $type,
+){
   exec { "rsync -rvhog $new_pos/ $old_pos":
     path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
     onlyif => "test -d $new_pos",
   }
+
+  exec { "chcon -R -h system_u:object_r:${type}:s0 ${old_pos}":
+    path        => ['/bin','/usr/bin','/sbin','/usr/sbin'],
+    onlyif => "test -d ${new_pos}",
+  }
+
 }
 
 
@@ -129,7 +143,7 @@ class setup_lvm{
           user => "nova", 
           group => "nova", 
           type => "nova_var_lib_t"}
-        sync_file{"instance-lv": old_pos => "${instance_mount_point}", new_pos => "${instance_mount_point}_1"}
+        sync_file{"instance-lv": old_pos => "${instance_mount_point}", new_pos => "${instance_mount_point}_1", type => "nova_var_lib_t"}
         setup_vg{"image": vg_name => "${image_vg_name}", dev_path => "${hdd1}2"}
         setup_lv{"image-lv": vg_name => "${image_vg_name}", lv_name => "${image_lv_name}"}
         mkfs_lv{"image-lv": vg_name => "${image_vg_name}", lv_name => "${image_lv_name}"}
@@ -142,13 +156,13 @@ class setup_lvm{
           user => "glance", 
           group => "glance", 
           type => "glance_var_lib_t"}
-        sync_file{"image-lv": old_pos => "${image_mount_point}", new_pos => "${image_mount_point}_1"}
+        sync_file{"image-lv": old_pos => "${image_mount_point}", new_pos => "${image_mount_point}_1", type => "glance_var_lib_t"}
 	append_if_no_such_line{"instance-lv": 
           file => "/etc/fstab", 
-          line => "/dev/mapper/${instance_vg_name}-${instance_lv_name}	${instance_mount_point}  xfs     context=system_u:object_r:nova_var_lib_t:s0        0       0"}
+          line => "/dev/mapper/${instance_vg_name}-${instance_lv_name}	${instance_mount_point}  xfs     defaults        0       0"}
 	append_if_no_such_line{"image-lv": 
           file => "/etc/fstab", 
-          line => "/dev/mapper/${image_vg_name}-${image_lv_name}	${image_mount_point}  xfs     context=system_u:object_r:glance_var_lib_t:s0        0       0"}
+          line => "/dev/mapper/${image_vg_name}-${image_lv_name}	${image_mount_point}  xfs     defaults        0       0"}
         add_hdd_to_vg{"volume": vg_name => "cinder-volumes", dev_path => "${hddlist[1]}" }
       }
     8:{
@@ -165,7 +179,7 @@ class setup_lvm{
           user => "nova",
           group => "nova",
           type => "nova_var_lib_t"}
-        sync_file{"instance-lv": old_pos => "${instance_mount_point}", new_pos => "${instance_mount_point}_1"}
+        sync_file{"instance-lv": old_pos => "${instance_mount_point}", new_pos => "${instance_mount_point}_1", type => "nova_var_lib_t"}
         setup_vg{"image": vg_name => "${image_vg_name}", dev_path => "${hddlist[1]}"}
         setup_lv{"image-lv": vg_name => "${image_vg_name}", lv_name => "${image_lv_name}"}
         mkfs_lv{"image-lv": vg_name => "${image_vg_name}", lv_name => "${image_lv_name}"}
@@ -178,13 +192,13 @@ class setup_lvm{
           user => "glance",
           group => "glance",
           type => "glance_var_lib_t"}
-        sync_file{"image-lv": old_pos => "${image_mount_point}", new_pos => "${image_mount_point}_1"}
+        sync_file{"image-lv": old_pos => "${image_mount_point}", new_pos => "${image_mount_point}_1", type => "glance_var_lib_t"}
         append_if_no_such_line{"instance-lv":
           file => "/etc/fstab",
-          line => "/dev/mapper/${instance_vg_name}-${instance_lv_name}  ${instance_mount_point}  xfs     context=system_u:object_r:nova_var_lib_t:s0        0       0"}
+          line => "/dev/mapper/${instance_vg_name}-${instance_lv_name}  ${instance_mount_point}  xfs     defaults        0       0"}
         append_if_no_such_line{"image-lv":
           file => "/etc/fstab",
-          line => "/dev/mapper/${image_vg_name}-${image_lv_name}        ${image_mount_point}  xfs     context=system_u:object_r:glance_var_lib_t:s0        0       0"}
+          line => "/dev/mapper/${image_vg_name}-${image_lv_name}        ${image_mount_point}  xfs     defaults        0       0"}
         $hddlist.each |Integer $index, String $value| { 
           case $index {
             2,3,4,5,6,7:{
